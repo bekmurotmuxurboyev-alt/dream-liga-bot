@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os
+"""
+🏆 DREAM LIGA PRO BOT
+4v4 | 8v8 | 16v16 | Davomiy Liga
+O'zbekcha Telegram Bot
+"""
+
 import logging
 import random
 from datetime import datetime
@@ -10,20 +15,31 @@ from telegram.ext import (
     MessageHandler, filters, ContextTypes, ConversationHandler
 )
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+import os
+BOT_TOKEN = os.environ.get("BOT_TOKEN")  # @BotFather dan oling
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-(WAIT_TOUR_NAME, WAIT_TEAM_NAME, WAIT_SCORE, WAIT_JOIN_ID, MAIN) = range(5)
+# ── HOLATLAR ──────────────────────────────────────────────────────────────────
+(
+    WAIT_TOUR_NAME,
+    WAIT_TEAM_NAME,
+    WAIT_SCORE,
+    WAIT_JOIN_ID,
+    MAIN,
+) = range(5)
 
-db = {}
+# ── MA'LUMOTLAR ───────────────────────────────────────────────────────────────
+db = {}  # {id: tournament}
 
 FORMATS = {
     "4v4":    {"name": "⚡ Mini Cup (4 jamoa)",    "size": 4,  "type": "knockout"},
     "8v8":    {"name": "🏆 Standart Cup (8 jamoa)", "size": 8,  "type": "knockout"},
     "16v16":  {"name": "🌟 Mega Cup (16 jamoa)",    "size": 16, "type": "groups_knockout"},
     "league": {"name": "📅 Davomiy Liga",           "size": 0,  "type": "league"},
-}h
+}
+
+# ── YORDAMCHI ─────────────────────────────────────────────────────────────────
 def new_id():
     return f"DL{random.randint(10000,99999)}"
 
@@ -56,7 +72,8 @@ def standings_text(t):
         s = t["stats"].get(tm, init_stat())
         lines.append(f"`{i:<2} {tm:<16} {s['o']:<2} {s['g']:<2} {s['d']:<2} {s['y']:<2} {s['gf']:<2} {s['ga']:<2} {s['pts']:<3}`")
     return "\n".join(lines)
-  def make_bracket(teams):
+
+def make_bracket(teams):
     size = 1
     while size < len(teams): size *= 2
     pool = teams[:] + ["BYE"]*(size-len(teams))
@@ -96,8 +113,10 @@ def gen_league_matches(teams):
             matches.append({"home":teams[j],"away":teams[i],"played":False,"hs":0,"as":0})
     random.shuffle(matches)
     return matches
-  def t_menu_kb(tid):
+
+def t_menu_kb(tid):
     t = db[tid]
+    fmt = t["format"]
     status = t["status"]
     rows = [
         [InlineKeyboardButton("👥 Jamoalar", callback_data=f"teams_{tid}"),
@@ -115,6 +134,7 @@ def gen_league_matches(teams):
     rows.append([InlineKeyboardButton("🏠 Menyu", callback_data="menu")])
     return InlineKeyboardMarkup(rows)
 
+# ── BOSHLASH ──────────────────────────────────────────────────────────────────
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🏆 *DREAM LIGA PRO*\n\n"
@@ -131,7 +151,8 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ])
     )
     return MAIN
-  async def menu_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+
+async def menu_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     await q.edit_message_text(
         "🏠 *Asosiy Menyu*",
@@ -146,6 +167,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
     return MAIN
 
+# ── TURNIR YARATISH ───────────────────────────────────────────────────────────
 async def create_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     await q.edit_message_text(
@@ -168,7 +190,8 @@ async def got_tour_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(rows)
     )
     return MAIN
-  async def fmt_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+
+async def fmt_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     fmt = q.data.replace("fmt_","")
     name = ctx.user_data.get("tname","Turnir")
@@ -196,6 +219,7 @@ async def got_tour_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
     return MAIN
 
+# ── JAMOA QO'SHISH ────────────────────────────────────────────────────────────
 async def addteam_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     tid = q.data.replace("addteam_","")
@@ -222,10 +246,12 @@ async def got_team_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return WAIT_TEAM_NAME
     t["teams"].append(name)
     t["stats"][name] = init_stat()
+
     fmt = FORMATS[t["format"]]
     need = fmt["size"]
     have = len(t["teams"])
     status_line = f"✅ {have}/{need} jamoa" if need else f"✅ {have} ta jamoa"
+
     await update.message.reply_text(
         f"✅ *{name}* qo'shildi!\n{status_line}",
         parse_mode="Markdown",
@@ -236,7 +262,9 @@ async def got_team_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ])
     )
     return MAIN
-  async def begin_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+
+# ── TURNIRNI BOSHLASH ─────────────────────────────────────────────────────────
+async def begin_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     tid = q.data.replace("begin_","")
     t = db.get(tid)
@@ -244,16 +272,21 @@ async def got_team_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.answer("❌ Faqat admin boshlaydi!", show_alert=True); return MAIN
     if len(t["teams"]) < 2:
         await q.answer("❌ Kamida 2 ta jamoa kerak!", show_alert=True); return MAIN
+
     fmt = t["format"]
     ftype = FORMATS[fmt]["type"]
+
     if ftype == "knockout":
         t["bracket"] = make_bracket(t["teams"])
         t["status"] = "playoff"
         msg = f"⚔️ *{t['name']}* boshlandi!\n\n{bracket_text(t)}"
     elif ftype == "groups_knockout":
+        # Guruh bosqichi: barcha o'yinlar, keyin top 4 pleyof
+        t["matches"] = gen_league_matches(t["teams"])
+        # Faqat bir marta o'ynash (round robin bir marta)
         seen = set()
         half = []
-        for m in gen_league_matches(t["teams"]):
+        for m in t["matches"]:
             key = tuple(sorted([m["home"],m["away"]]))
             if key not in seen:
                 seen.add(key); half.append(m)
@@ -263,10 +296,12 @@ async def got_team_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif ftype == "league":
         t["matches"] = gen_league_matches(t["teams"])
         t["status"] = "league"
-        msg = f"📅 *{t['name']}* davomiy liga boshlandi!\n{len(t['matches'])} ta o'yin."
+        msg = f"📅 *{t['name']}* davomiy liga boshlandi!\n{len(t['matches'])} ta o'yin (ikki tur)."
+
     await q.edit_message_text(msg, parse_mode="Markdown", reply_markup=t_menu_kb(tid))
     return MAIN
 
+# ── O'YINLAR ──────────────────────────────────────────────────────────────────
 async def matches_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     tid = q.data.replace("matches_","")
@@ -276,6 +311,7 @@ async def matches_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text("❌ O'yinlar yo'q.", reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("⬅️", callback_data=f"tmenu_{tid}")]]))
         return MAIN
+
     lines = [f"📅 *{t['name']} — O'YINLAR*\n"]
     for i, m in enumerate(matches):
         icon = "✅" if m["played"] else "⏳"
@@ -283,6 +319,7 @@ async def matches_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"{i+1}. {icon} {m['home']} *{m['hs']}:{m['as']}* {m['away']}")
         else:
             lines.append(f"{i+1}. {icon} {m['home']} 🆚 {m['away']}")
+
     unplayed = [(i,m) for i,m in enumerate(matches) if not m["played"]]
     buttons = []
     for i,m in unplayed[:8]:
@@ -294,17 +331,22 @@ async def matches_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await q.edit_message_text("\n".join(lines), parse_mode="Markdown",
                                reply_markup=InlineKeyboardMarkup(buttons))
     return MAIN
-  async def score_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+
+# ── NATIJA KIRITISH (guruh/liga) ──────────────────────────────────────────────
+async def score_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     tid = q.data.replace("score_","")
     t = db.get(tid)
+    # Pleyof yoki guruh/liga
     if t["status"] == "playoff":
+        # Bracket o'yinlari
         rounds = t.get("bracket",[])
         if not rounds:
             await q.answer("Bracket yo'q!", show_alert=True); return MAIN
         last = rounds[-1]
         unplayed = [(i,m) for i,m in enumerate(last) if not m["played"] and m["away"]!="BYE"]
         if not unplayed:
+            # Keyingi raund
             winners = [m["winner"] for m in last]
             if len(winners)==1:
                 t["champion"] = winners[0]; t["status"]="finished"
@@ -321,6 +363,8 @@ async def matches_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             rounds.append(nr)
             unplayed = [(i,m) for i,m in enumerate(nr) if not m["played"] and m["away"]!="BYE"]
         ctx.user_data["score_tid"] = tid
+        ctx.user_data["score_type"] = "bracket"
+        ctx.user_data["score_round"] = len(rounds)-1
         buttons = []
         for i,m in unplayed:
             buttons.append([InlineKeyboardButton(
@@ -333,6 +377,7 @@ async def matches_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         matches = t.get("matches",[])
         unplayed = [(i,m) for i,m in enumerate(matches) if not m["played"]]
         if not unplayed:
+            # Guruh tugadimi?
             if t["status"]=="group":
                 top = sorted_teams(t)[:4]
                 t["bracket"] = make_bracket(top)
@@ -352,10 +397,11 @@ async def matches_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 callback_data=f"mscore_{tid}_{i}"
             )])
         buttons.append([InlineKeyboardButton("⬅️", callback_data=f"tmenu_{tid}")])
-        await q.edit_message_text("⚽ Qaysi o'yin?",
+        await q.edit_message_text("⚽ Qaysi o'yin natijasini kiritasiz?",
                                    reply_markup=InlineKeyboardMarkup(buttons))
     return MAIN
-    async def mscore_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+
+async def mscore_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     parts = q.data.split("_")
     tid = parts[1]; idx = int(parts[2])
@@ -389,21 +435,44 @@ async def got_score(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except:
         await update.message.reply_text("❌ Format xato! `2:1` ko'rinishida yozing.", parse_mode="Markdown")
         return WAIT_SCORE
-    extra = ""
+
+    # Liga/guruh o'yin
     if "mscore_tid" in ctx.user_data:
         tid = ctx.user_data.pop("mscore_tid")
         idx = ctx.user_data.pop("mscore_idx")
         t = db[tid]; m = t["matches"][idx]
         m["played"]=True; m["hs"]=hs; m["as"]=as_
         update_stat(t, m["home"], m["away"], hs, as_)
+        extra = ""
+        # Liga yangi mavsum?
         if t["status"]=="league":
             all_done = all(m["played"] for m in t["matches"])
             if all_done:
                 t["season"]+=1
                 t["matches"] = gen_league_matches(t["teams"])
                 extra = f"\n\n🔄 {t['season']}-mavsum boshlandi!"
-    elif "bscore_tid"
-  async def stand_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+
+    # Bracket o'yin
+    elif "bscore_tid" in ctx.user_data:
+        tid = ctx.user_data.pop("bscore_tid")
+        rnd = ctx.user_data.pop("bscore_rnd")
+        idx = ctx.user_data.pop("bscore_idx")
+        t = db[tid]; m = t["bracket"][rnd][idx]
+        m["played"]=True; m["hs"]=hs; m["as"]=as_
+        m["winner"] = m["home"] if hs>as_ else (m["away"] if as_>hs else m["home"])  # tenglikda uy
+        extra = ""
+    else:
+        await update.message.reply_text("❌ Xatolik."); return MAIN
+
+    await update.message.reply_text(
+        f"✅ *{m['home']}* {hs}:{as_} *{m['away']}*{extra}\n\nSaqlandi!",
+        parse_mode="Markdown",
+        reply_markup=t_menu_kb(tid)
+    )
+    return MAIN
+
+# ── JADVAL / BRACKET / TEAMS ──────────────────────────────────────────────────
+async def stand_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     tid = q.data.replace("stand_","")
     t = db.get(tid)
@@ -426,136 +495,4 @@ async def teams_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lines = [f"👥 *{t['name']} — JAMOALAR* ({len(t['teams'])} ta)\n"]
     for i, tm in enumerate(t["teams"],1):
         lines.append(f"{i}. {tm}")
-    await q.edit_message_text("\n".join(lines), parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Qo'shish", callback_data=f"addteam_{tid}"),
-             InlineKeyboardButton("⬅️ Orqaga", callback_data=f"tmenu_{tid}")]
-        ]))
-    return MAIN
-
-async def tmenu_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
-    tid = q.data.replace("tmenu_","")
-    t = db.get(tid)
-    status_text = {"reg":"📝 Ro'yxat","group":"🏟 Guruh","league":"📅 Liga",
-                   "playoff":"⚔️ Pleyof","finished":"🏁 Tugadi"}.get(t["status"],"?")
-    champ = f"\n🥇 Chempion: *{t['champion']}*" if t.get("champion") else ""
-    season = f"\n🔄 Mavsum: {t['season']}" if t["format"]=="league" else ""
-    await q.edit_message_text(
-        f"🏆 *{t['name']}*\n\n"
-        f"📌 ID: `{t['id']}`\n"
-        f"📋 Format: {FORMATS[t['format']]['name']}\n"
-        f"👥 Jamoalar: {len(t['teams'])} ta\n"
-        f"🔄 Holat: {status_text}{season}{champ}",
-        parse_mode="Markdown",
-        reply_markup=t_menu_kb(tid)
-    )
-    return MAIN
-  async def mine_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
-    uid = q.from_user.id
-    my = [t for t in db.values() if t["admin"]==uid]
-    if not my:
-        await q.edit_message_text("📋 Turnirlaringiz yo'q.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("➕ Yaratish", callback_data="create")],
-                [InlineKeyboardButton("🏠 Menyu", callback_data="menu")]
-            ]))
-        return MAIN
-    icons = {"reg":"📝","group":"🏟","league":"📅","playoff":"⚔️","finished":"🏁"}
-    btns = [[InlineKeyboardButton(
-        f"{icons.get(t['status'],'🔄')} {t['name']} ({len(t['teams'])}ta)",
-        callback_data=f"tmenu_{t['id']}")] for t in my]
-    btns.append([InlineKeyboardButton("🏠 Menyu", callback_data="menu")])
-    await q.edit_message_text(f"📋 *Turnirlaringiz* ({len(my)} ta):",
-        parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(btns))
-    return MAIN
-
-async def join_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
-    await q.edit_message_text("🔍 Turnir ID sini yozing:", parse_mode="Markdown")
-    ctx.user_data["action"] = "join"
-    return WAIT_JOIN_ID
-
-async def got_join_id(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    tid = update.message.text.strip().upper()
-    t = db.get(tid)
-    if not t:
-        await update.message.reply_text("❌ Topilmadi!")
-        return WAIT_JOIN_ID
-    await update.message.reply_text(
-        f"✅ *{t['name']}* topildi!\n👥 {len(t['teams'])} ta jamoa",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📋 Ko'rish", callback_data=f"tmenu_{tid}")],
-            [InlineKeyboardButton("🏠 Menyu", callback_data="menu")],
-        ])
-    )
-    return MAIN
-
-async def rating_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
-    done = [t for t in db.values() if t.get("champion")]
-    if not done:
-        await q.edit_message_text("📈 Hali chempion yo'q.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menyu", callback_data="menu")]]))
-        return MAIN
-    lines = ["🏆 *CHEMPIONLAR*\n"]
-    for t in done:
-        lines.append(f"🥇 *{t['champion']}* — {t['name']}")
-    await q.edit_message_text("\n".join(lines), parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menyu", callback_data="menu")]]))
-    return MAIN
-
-async def help_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
-    await q.edit_message_text(
-        "ℹ️ *YORDAM*\n\n"
-        "⚡ *4v4 Mini Cup* — 4 jamoa\n"
-        "🏆 *8v8 Standart Cup* — 8 jamoa\n"
-        "🌟 *16v16 Mega Cup* — guruh + pleyof\n"
-        "📅 *Davomiy Liga* — mavsumlar\n\n"
-        "1. Turnir yarat\n2. Jamoalar qo'sh\n"
-        "3. Boshlash\n4. Natija kirit (`2:1`)",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menyu", callback_data="menu")]]))
-    return MAIN
-
-def main():
-    app = Application.builder().token(BOT_TOKEN).build()
-    conv = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            MAIN: [
-                CallbackQueryHandler(menu_cb, pattern="^menu$"),
-                CallbackQueryHandler(create_cb, pattern="^create$"),
-                CallbackQueryHandler(mine_cb, pattern="^mine$"),
-                CallbackQueryHandler(join_cb, pattern="^join$"),
-                CallbackQueryHandler(rating_cb, pattern="^rating$"),
-                CallbackQueryHandler(help_cb, pattern="^help$"),
-                CallbackQueryHandler(fmt_cb, pattern="^fmt_"),
-                CallbackQueryHandler(addteam_cb, pattern="^addteam_"),
-                CallbackQueryHandler(begin_cb, pattern="^begin_"),
-                CallbackQueryHandler(tmenu_cb, pattern="^tmenu_"),
-                CallbackQueryHandler(teams_cb, pattern="^teams_"),
-                CallbackQueryHandler(stand_cb, pattern="^stand_"),
-                CallbackQueryHandler(matches_cb, pattern="^matches_"),
-                CallbackQueryHandler(bracket_cb, pattern="^bracket_"),
-                CallbackQueryHandler(score_cb, pattern="^score_"),
-                CallbackQueryHandler(mscore_cb, pattern="^mscore_"),
-                CallbackQueryHandler(bscore_cb, pattern="^bscore_"),
-            ],
-            WAIT_TOUR_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, got_tour_name)],
-            WAIT_TEAM_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, got_team_name)],
-            WAIT_SCORE: [MessageHandler(filters.TEXT & ~filters.COMMAND, got_score)],
-            WAIT_JOIN_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, got_join_id)],
-        },
-        fallbacks=[CommandHandler("start", start)],
-        per_message=False,
-    )
-    app.add_handler(conv)
-    print("🏆 Dream Liga Pro Bot ishga tushdi!")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
-
-if __name__ == "__main__":
-    main()
+    await q.edit_message_text("\
